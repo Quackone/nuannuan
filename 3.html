@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1200, initial-scale=1">
-    <title>CAGED system</title>
+    <title>精确吉他指板 - C大调定制版 (完全修正版)</title>
     <style>
         :root {
             --fret-color: #ddd;
@@ -45,19 +45,36 @@
         .fret { border-right: 2px solid var(--fret-color); display: flex; justify-content: center; align-items: center; position: relative; z-index: 2; }
         .fret-0 { border-right: 5px solid #eee; background: rgba(0,0,0,0.2); }
         .note { width: 26px; height: 26px; border-radius: 50%; background: var(--note-scale); color: white; font-size: 11px; font-weight: bold; display: none; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
-        @keyframes golden-breath { 0%, 100% { box-shadow: 0 0 0px rgba(255, 215, 0, 0); border: 1px solid transparent; } 50% { box-shadow: 0 0 10px 4px rgba(255, 215, 0, 0.8); border: 1px solid var(--note-gold); } }
+        
+        @keyframes golden-breath { 
+            0%, 100% { box-shadow: 0 0 0px rgba(255, 215, 0, 0); border: 1px solid transparent; } 
+            50% { box-shadow: 0 0 10px 4px rgba(255, 215, 0, 0.8); border: 1px solid var(--note-gold); } 
+        }
+
+        /* 基础显示逻辑 */
         .fretboard.pattern-1 .p1, .fretboard.pattern-2 .p2, .fretboard.pattern-3 .p3, .fretboard.pattern-4 .p4, .fretboard.pattern-5 .p5 { display: flex; }
-        .fretboard:not(.caged-on) .note.chord-tone { animation: golden-breath 2s infinite ease-in-out; }
+
+        /* 呼吸灯逻辑：仅当音符在当前激活的指型中被定义为“有效和弦音(ct)”时闪烁 */
+        .fretboard:not(.caged-on).pattern-1 .p1.ct1,
+        .fretboard:not(.caged-on).pattern-2 .p2.ct2,
+        .fretboard:not(.caged-on).pattern-3 .p3.ct3,
+        .fretboard:not(.caged-on).pattern-4 .p4.ct4,
+        .fretboard:not(.caged-on).pattern-5 .p5.ct5 { 
+            animation: golden-breath 2s infinite ease-in-out; 
+        }
+
+        /* CAGED 模式激活时的逻辑 */
         .fretboard.caged-on .note { display: none !important; }
-        .fretboard.caged-on.pattern-1 .p1.chord-tone,
-        .fretboard.caged-on.pattern-2 .p2.chord-tone,
-        .fretboard.caged-on.pattern-3 .p3.chord-tone,
-        .fretboard.caged-on.pattern-4 .p4.chord-tone,
-        .fretboard.caged-on.pattern-5 .p5.chord-tone {
+        .fretboard.caged-on.pattern-1 .p1.ct1,
+        .fretboard.caged-on.pattern-2 .p2.ct2,
+        .fretboard.caged-on.pattern-3 .p3.ct3,
+        .fretboard.caged-on.pattern-4 .p4.ct4,
+        .fretboard.caged-on.pattern-5 .p5.ct5 {
             display: flex !important;
             background: var(--note-gold);
             color: #332200;
         }
+
         .inlay { position: absolute; width: 14px; height: 14px; background: rgba(255,255,255,0.1); border-radius: 50%; }
         .fret-numbers { display: grid; grid-template-columns: 0.5fr repeat(15, 1fr); width: 100%; margin-top: 10px; }
         .num { text-align: center; font-size: 12px; color: #777; font-weight: bold; }
@@ -111,7 +128,7 @@
 const board = document.getElementById('fretboard');
 const numBar = document.getElementById('fretNumbers');
 const chromaticScale = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const openStrings = ['E','B','G','D','A','E'];
+const openStrings = ['E','B','G','D','A','E']; // 索引 0是1弦，5是6弦
 const scaleNotes = ['C','D','E','F','G','A','B'];
 const chordTones = ['C','E','G'];
 
@@ -132,6 +149,7 @@ function init() {
             const fretEl = document.createElement('div');
             fretEl.className = `fret ${f === 0 ? 'fret-0' : ''}`;
 
+            // 绘制品记
             if (sIdx === 2 && [3,5,7,9,15].includes(f)) {
                 const dot = document.createElement('div');
                 dot.className = 'inlay';
@@ -150,32 +168,71 @@ function init() {
                 n.innerText = noteName;
 
                 let isChord = chordTones.includes(noteName);
-                if (isChord) n.classList.add('chord-tone');
 
-                if (f <= 3) n.classList.add('p1');
-                if (f >= 2 && f <= 6) n.classList.add('p2');
+                // --- 指型 1 (C型) 逻辑 ---
+                if (f <= 3) {
+                    n.classList.add('p1');
+                    // 排除 6弦0品(E) 和 1弦3品(G)
+                    if (isChord && !((sIdx === 5 && f === 0) || (sIdx === 0 && f === 3))) {
+                        n.classList.add('ct1');
+                    }
+                }
+
+                // --- 指型 2 (A型) 逻辑 ---
+                if (f >= 2 && f <= 6) {
+                    n.classList.add('p2');
+                    // 排除 4弦2品(E) -> sIdx为3
+                    if (isChord && !(sIdx === 3 && f === 2)) {
+                        n.classList.add('ct2');
+                    }
+                }
+
+                // --- 指型 3 (G型) 逻辑 ---
+                let isP3 = false;
                 if (f >= 5 && f <= 9) {
-                    if (!((sIdx === 3 && f === 9) || (sIdx === 2 && f === 9))) n.classList.add('p3');
+                    if (!((sIdx === 3 && f === 9) || (sIdx === 2 && f === 9))) isP3 = true;
                 }
-                if (sIdx === 2 && f === 4) n.classList.add('p3');
-                if (f >= 7 && f <= 11) n.classList.add('p4');
+                if (sIdx === 2 && f === 4) isP3 = true;
 
+                if (isP3) {
+                    n.classList.add('p3');
+                    // 排除 2弦8品(G) -> sIdx为1
+                    if (isChord && !(sIdx === 1 && f === 8)) {
+                        n.classList.add('ct3');
+                    }
+                }
+
+                // --- 指型 4 (E型) 逻辑 ---
+                if (f >= 7 && f <= 11) {
+                    n.classList.add('p4');
+                    // 排除 5弦7品(E) -> sIdx为4
+                    if (isChord && !(sIdx === 4 && f === 7)) {
+                        n.classList.add('ct4');
+                    }
+                }
+
+                // --- 指型 5 (D型) 逻辑 ---
                 const p5Config = [
-                    {s: 5, frets: [10,12,13]},
-                    {s: 4, frets: [10,12]},
-                    {s: 3, frets: [9,10,12]},
-                    {s: 2, frets: [9,10,12]},
-                    {s: 1, frets: [10,12,13]},
-                    {s: 0, frets: [10,12,13]}
+                    {s: 5, frets: [10,12,13]}, // 6弦
+                    {s: 4, frets: [10,12]},    // 5弦
+                    {s: 3, frets: [9,10,12]},  // 4弦
+                    {s: 2, frets: [9,10,12]},  // 3弦
+                    {s: 1, frets: [10,12,13]}, // 2弦
+                    {s: 0, frets: [10,12,13]}  // 1弦
                 ];
-
                 const currentStringTarget = p5Config.find(item => item.s === (5 - sIdx));
-                if (currentStringTarget && currentStringTarget.frets.includes(f)) {
+                let isP5 = false;
+                if (currentStringTarget && currentStringTarget.frets.includes(f)) isP5 = true;
+                if (sIdx === 1 && f === 13 && noteName === 'C') isP5 = true;
+
+                if (isP5) {
                     n.classList.add('p5');
+                    // 排除 3弦9品(E) -> sIdx为2
+                    if (isChord && !(sIdx === 2 && f === 9)) {
+                        n.classList.add('ct5');
+                    }
                 }
-                if (sIdx === 1 && f === 13 && noteName === 'C') {
-                    n.classList.add('p5');
-                }
+
                 fretEl.appendChild(n);
             }
             stringEl.appendChild(fretEl);
@@ -198,5 +255,4 @@ init();
 </script>
 
 </body>
-
 </html>
